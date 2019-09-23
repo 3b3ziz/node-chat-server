@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 const ChatSchema = new mongoose.Schema({
-  chat_id: {
-    type: String,
-    required: true,
-  },
+  // chat_id: {
+  //   type: String,
+  //   required: true,
+  // },
   job_id: {
     type: String,
     required: true,
@@ -33,5 +33,8 @@ const ChatSchema = new mongoose.Schema({
     }
   ],
 });
+
+// https://stackoverflow.com/a/14284192/8373219
+ChatSchema.index({ job_id: 1, freelancer_id: 1, client_id: 1 }, { unique: true });
 
 module.exports = mongoose.model('Chat', ChatSchema);
