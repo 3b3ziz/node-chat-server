@@ -4,39 +4,76 @@ var Chat = require('../db/models/chat');
 
 /* GET chats page. */
 router.get('/', function(req, res, next) {
+  console.log(req.query);
+  const requestQuery = req.query;
+  const clientID = requestQuery.client_id;
+  const jobID = requestQuery.job_id;
+  const freelancerID = requestQuery.freelancer_id;
 
-  // json body in post request
-  // var tmpChat = new Chat({
-  //   job_id: 1,
-  //   freelancer_id: 1,
-  //   client_id: 1,
-  // });
-
-  // tmpChat.save((err, chatInstance) => {
-  //   if (err) return console.error(err);
-  //   console.log(chatInstance);
-  //   Chat.find({}, async (err, chats) => {
-  // await Chat.deleteMany({});
-  //     res.json(chats);
-  //   });
-  // });
-
-  // Chat.findOne({
-  //   job_id: 1,
-  //   freelancer_id: 1,
-  //   client_id: 1,
-  // }, (err, chat) => {
-  //   chat.messages.push({
-  //     message: 'Hello World',
-  //     sender_id: 1
-  //   });
-  //   chat.save((err, chatInstance) => {
-  //     Chat.find({}, async (err, chats) => {
-  //       res.json(chats);
-  //     });
-  //   });
-  // });
-
+  Chat.find({}, async (err, chats) => {
+    // if query params exist, create a new chat and add it to the chats array
+    // to let frontend know that this is a new chat
+    if(clientID && jobID && freelancerID) {
+      const newChatInstance = new Chat({
+        job_id: jobID,
+        freelancer_id: freelancerID,
+        client_id: clientID,
+      });
+      chats.unshift(newChatInstance);
+    }
+    res.json({ data: chats  });
+  });
 });
+
+router.post('/', function(req, res, next) {
+  const requestBody = req.body;
+  const clientID = requestBody.client_id;
+  const jobID = requestBody.job_id;
+  const freelancerID = requestBody.freelancer_id;
+  const message = requestBody.message;
+  const senderID = requestBody.sender_id;
+
+  if(clientID && jobID && freelancerID && message && senderID) {
+    // finding the chat by jID, cID and fID
+    Chat.findOne({
+      job_id: jobID,
+      freelancer_id: freelancerID,
+      client_id: clientID,
+    }, (err, chat) => {
+      if (err) return console.error(err);
+      // if not found, create a new one
+      if(!chat) {
+        const newChatInstance = new Chat({
+          job_id: jobID,
+          freelancer_id: freelancerID,
+          client_id: clientID,
+          messages: [
+            {
+              message: message,
+              sender_id: senderID
+            }
+          ]
+        });
+        newChatInstance.save((err, chatInstance) => {
+          if (err) return console.error(err);
+          res.json({ data: chatInstance });
+        });
+      }
+      // if not, append the message to the messages of the catt
+      else {
+        chat.messages.push({
+          message: message,
+          sender_id: senderID
+        });
+        chat.save(err => {
+          if (err) return console.error(err);
+          res.status(200).json({ data: chat });
+        });
+      }
+    });
+  } else {
+    res.status(500).json({ error: 'message' })
+  }
+})
 
 module.exports = router;
