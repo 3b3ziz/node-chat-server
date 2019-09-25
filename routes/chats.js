@@ -14,12 +14,22 @@ router.get('/', function(req, res, next) {
     // if query params exist, create a new chat and add it to the chats array
     // to let frontend know that this is a new chat
     if(clientID && jobID && freelancerID) {
-      const newChatInstance = new Chat({
+      Chat.findOne({
         job_id: jobID,
         freelancer_id: freelancerID,
         client_id: clientID,
+      }, (err, chat) => {
+        if (err) return console.error(err);
+        // if not found, create a new one
+        if(!chat) {
+          const newChatInstance = new Chat({
+            job_id: jobID,
+            freelancer_id: freelancerID,
+            client_id: clientID,
+          });
+          chats.unshift(newChatInstance);
+        }
       });
-      chats.unshift(newChatInstance);
     }
     res.json({ data: chats  });
   });
