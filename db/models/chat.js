@@ -4,11 +4,23 @@ const ChatSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  job_title: {
+    type: String,
+    required: true,
+  },
   freelancer_id: {
     type: String,
     required: true,
   },
+  freelancer_name: {
+    type: String,
+    required: true,
+  },
   client_id: {
+    type: String,
+    required: true,
+  },
+  client_name: {
     type: String,
     required: true,
   },
@@ -22,7 +34,7 @@ const ChatSchema = new mongoose.Schema({
         type: String,
         required: true,
       },
-      date: {
+      created_at: {
         type: Date,
         default: Date.now
       }

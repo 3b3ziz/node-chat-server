@@ -5,9 +5,15 @@ var Chat = require('../db/models/chat');
 /* GET all chats */
 router.get('/', function(req, res, next) {
   const requestQuery = req.query;
-  const clientID = requestQuery.client_id;
+  
+  const jobTitle = requestQuery.job_title;
   const jobID = requestQuery.job_id;
+  
+  const clientID = requestQuery.client_id;
+  const clientName = requestQuery.client_name;
+  
   const freelancerID = requestQuery.freelancer_id;
+  const freelancerName = requestQuery.freelancer_name;
 
   Chat.find({}, async (err, chats) => {
     // if query params exist, create a new chat and add it to the chats array
@@ -23,8 +29,11 @@ router.get('/', function(req, res, next) {
         if(!chat) {
           const newChatInstance = new Chat({
             job_id: jobID,
+            job_title: jobTitle,
             freelancer_id: freelancerID,
+            freelancer_name: freelancerName,
             client_id: clientID,
+            client_name: clientName,
           });
           chats.unshift(newChatInstance);
           res.json({ data: chats  });
@@ -41,9 +50,16 @@ router.get('/', function(req, res, next) {
 /* POST chat message. */
 router.post('/', function(req, res, next) {
   const requestBody = req.body;
-  const clientID = requestBody.client_id;
+
+  const jobTitle = requestBody.job_title;
   const jobID = requestBody.job_id;
+  
+  const clientID = requestBody.client_id;
+  const clientName = requestBody.client_name;
+  
   const freelancerID = requestBody.freelancer_id;
+  const freelancerName = requestBody.freelancer_name;
+
   const message = requestBody.message;
   const senderID = requestBody.sender_id;
 
@@ -59,8 +75,11 @@ router.post('/', function(req, res, next) {
       if(!chat) {
         const newChatInstance = new Chat({
           job_id: jobID,
+          job_title: jobTitle,
           freelancer_id: freelancerID,
+          freelancer_name: freelancerName,
           client_id: clientID,
+          client_name: clientName,
           messages: [
             {
               message: message,
