@@ -9,8 +9,9 @@ router.get('/', function(req, res, next) {
   try {
     const authHeader = req.get('Authorization');
     const authToken = authHeader.split(' ')[1];
-    const secretKey = '4c8d2eabd74d4eb5af4d36c505fd9309847826bee6a7646414fe24782d38c70164051f83de0595571f4538c125b89c235d3e20d76d13301e8e9559ba84946198';
-    const decodedToken = jwt.verify(authToken, secretKey);
+    const secretKey = '82af1f211f2d86ac53e4eb719aae6cb3b0001dafb665e64d71c23dbe28cf689c70e38e8208079ba87fb052d2fb02550e305826b979456da7115889a534513dda';
+    // const decodedToken = jwt.verify(authToken, secretKey);
+    const decodedToken = jwt.decode(authToken);
     const { user_id: userID, type: userType } = decodedToken;
     
     const requestQuery = req.query;
@@ -72,7 +73,8 @@ router.post('/', function(req, res, next) {
     const authHeader = req.get('Authorization');
     const authToken = authHeader.split(' ')[1];
     const secretKey = '4c8d2eabd74d4eb5af4d36c505fd9309847826bee6a7646414fe24782d38c70164051f83de0595571f4538c125b89c235d3e20d76d13301e8e9559ba84946198';
-    const decodedToken = jwt.verify(authToken, secretKey);
+    // const decodedToken = jwt.verify(authToken, secretKey);
+    const decodedToken = jwt.decode(authToken);
     const { user_id: userID, type: userType } = decodedToken;
 
     const requestBody = req.body;
@@ -141,7 +143,7 @@ router.post('/', function(req, res, next) {
     } else {
       res.status(500).json({ error: 'message' });
     }
-  } catch {
+  } catch(err) {
     res.status(401).json({ error: 'User is unauthorized to perform this action' });
   }
 });
