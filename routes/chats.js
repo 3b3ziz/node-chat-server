@@ -2,9 +2,8 @@ var express = require('express');
 var router = express.Router();
 var Chat = require('../db/models/chat');
 
-/* GET chats page. */
+/* GET all chats */
 router.get('/', function(req, res, next) {
-  console.log(req.query);
   const requestQuery = req.query;
   const clientID = requestQuery.client_id;
   const jobID = requestQuery.job_id;
@@ -28,13 +27,18 @@ router.get('/', function(req, res, next) {
             client_id: clientID,
           });
           chats.unshift(newChatInstance);
+          res.json({ data: chats  });
+        } else {
+          res.json({ data: chats  });
         }
       });
+    } else {
+      res.json({ data: chats  });
     }
-    res.json({ data: chats  });
   });
 });
 
+/* POST chat message. */
 router.post('/', function(req, res, next) {
   const requestBody = req.body;
   const clientID = requestBody.client_id;
