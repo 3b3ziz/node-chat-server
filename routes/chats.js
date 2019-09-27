@@ -3,6 +3,12 @@ var router = express.Router();
 var jwt = require('jsonwebtoken');
 var Chat = require('../db/models/chat');
 
+router.get('/delete', function(req, res, next) {
+  Chat.deleteMany({ }, function (err) {
+
+  });
+});
+
 /* GET all chats */
 router.get('/', function(req, res, next) {
 
@@ -60,7 +66,7 @@ router.get('/', function(req, res, next) {
       } else {
         res.json(chats);
       }
-    });
+    }).sort({ updated_at: -1 });
   } catch(err) {
     res.status(401).json({ error: 'User is unauthorized to perform this action' });
   }

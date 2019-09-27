@@ -39,7 +39,13 @@ const ChatSchema = new mongoose.Schema({
         default: Date.now
       }
     }
-  ],
+  ]
+},
+{
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  }
 });
 
 // https://stackoverflow.com/a/14284192/8373219
