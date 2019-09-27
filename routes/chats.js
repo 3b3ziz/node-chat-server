@@ -5,7 +5,9 @@ var Chat = require('../db/models/chat');
 
 router.get('/delete', function(req, res, next) {
   Chat.deleteMany({ }, function (err) {
-
+    Chat.find({}, async (err, chats) => {
+      res.json(chats);
+    });
   });
 });
 
@@ -15,7 +17,8 @@ router.get('/', function(req, res, next) {
   try {
     const authHeader = req.get('Authorization');
     const authToken = authHeader.split(' ')[1];
-    const secretKey = '82af1f211f2d86ac53e4eb719aae6cb3b0001dafb665e64d71c23dbe28cf689c70e38e8208079ba87fb052d2fb02550e305826b979456da7115889a534513dda';
+    // TODO: verify jwtToken instead.
+    // const secretKey = '';
     // const decodedToken = jwt.verify(authToken, secretKey);
     const decodedToken = jwt.decode(authToken);
     const { user_id: userID, type: userType } = decodedToken;
@@ -78,7 +81,8 @@ router.post('/', function(req, res, next) {
   try {
     const authHeader = req.get('Authorization');
     const authToken = authHeader.split(' ')[1];
-    const secretKey = '4c8d2eabd74d4eb5af4d36c505fd9309847826bee6a7646414fe24782d38c70164051f83de0595571f4538c125b89c235d3e20d76d13301e8e9559ba84946198';
+    // TODO: verify jwtToken instead.
+    // const secretKey = '';
     // const decodedToken = jwt.verify(authToken, secretKey);
     const decodedToken = jwt.decode(authToken);
     const { user_id: userID, type: userType } = decodedToken;
@@ -94,7 +98,6 @@ router.post('/', function(req, res, next) {
     const freelancerName = requestBody.freelancer_name;
 
     const message = requestBody.message;
-    const senderID = requestBody.sender_id;
 
     if (
       clientID &&
@@ -104,7 +107,7 @@ router.post('/', function(req, res, next) {
       clientName &&
       freelancerName &&
       message &&
-      senderID
+      userID
     ) {
       // finding the chat by jID, cID and fID
       Chat.findOne({
@@ -125,7 +128,7 @@ router.post('/', function(req, res, next) {
             messages: [
               {
                 message: message,
-                sender_id: senderID
+                sender_id: userID
               }
             ]
           });
@@ -138,7 +141,7 @@ router.post('/', function(req, res, next) {
         else {
           chat.messages.push({
             message: message,
-            sender_id: senderID
+            sender_id: userID
           });
           chat.save(err => {
             if (err) return console.error(err);
