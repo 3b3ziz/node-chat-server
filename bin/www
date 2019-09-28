@@ -19,6 +19,8 @@ app.set('port', port);
  */
 
 var server = http.createServer(app);
+var io = require('socket.io')(server);
+app.set("io", io);
 
 /**
  * Listen on provided port, on all network interfaces.
@@ -28,6 +30,22 @@ connectDb().then(async () => {
   server.listen(port);
   server.on('error', onError);
   server.on('listening', onListening);
+  io.on('connection', function (socket) {
+
+    let token = socket.handshake.query.token;
+    console.log(token);
+    // idea: decode token .. make this user join a room with his id
+    // socket.join('some room');
+    // if message is sent to this user, emit it to the room or directly
+    // with the socket id
+    // keep socket ids in a map { userId: socketId }
+    
+    console.log(`Socket ${socket.id} connected.`);
+    socket.on('disconnect', (reason) => {
+      console.log(reason);
+      console.log('a user disconnected');
+    });
+  });
 });
 
 /**

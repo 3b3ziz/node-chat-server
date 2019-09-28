@@ -13,7 +13,8 @@ router.get('/delete', function(req, res, next) {
 
 /* GET all chats */
 router.get('/', function(req, res, next) {
-
+  const io = req.app.get('io');
+  io.emit('message', { hello: 'world' });
   try {
     const authHeader = req.get('Authorization');
     const authToken = authHeader.split(' ')[1];
@@ -78,6 +79,7 @@ router.get('/', function(req, res, next) {
 /* POST chat message. */
 router.post('/', function(req, res, next) {
 
+  const io = req.app.get('io');
   try {
     const authHeader = req.get('Authorization');
     const authToken = authHeader.split(' ')[1];
@@ -134,6 +136,7 @@ router.post('/', function(req, res, next) {
           });
           newChatInstance.save((err, chatInstance) => {
             if (err) return console.error(err);
+            io.emit('news', { hello: 'world' });
             res.json(chatInstance);
           });
         }
@@ -145,6 +148,7 @@ router.post('/', function(req, res, next) {
           });
           chat.save(err => {
             if (err) return console.error(err);
+            io.emit('news', { hello: 'world' });
             res.status(200).json(chat);
           });
         }
