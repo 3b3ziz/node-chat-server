@@ -13,8 +13,8 @@ router.get('/delete', function(req, res, next) {
 
 /* GET all chats */
 router.get('/', function(req, res, next) {
-  const io = req.app.get('io');
-  io.emit('message', { hello: 'world' });
+  // const users = req.app.get('users');
+  // console.log(users);
   try {
     const authHeader = req.get('Authorization');
     const authToken = authHeader.split(' ')[1];
@@ -79,8 +79,10 @@ router.get('/', function(req, res, next) {
 /* POST chat message. */
 router.post('/', function(req, res, next) {
 
-  const io = req.app.get('io');
   try {
+    const io = req.app.get('io');
+    const users = req.app.get('users');
+
     const authHeader = req.get('Authorization');
     const authToken = authHeader.split(' ')[1];
     // TODO: verify jwtToken instead.
@@ -99,6 +101,8 @@ router.post('/', function(req, res, next) {
     const freelancerID = userType === 'Freelancer' ? userID : requestBody.freelancer_id;
     const freelancerName = requestBody.freelancer_name;
 
+    const toID = userType === 'Client' ? freelancerID : clientID;
+    const recieverSocketIDs = users[toID];
     const message = requestBody.message;
 
     if (
@@ -136,7 +140,13 @@ router.post('/', function(req, res, next) {
           });
           newChatInstance.save((err, chatInstance) => {
             if (err) return console.error(err);
-            io.emit('news', { hello: 'world' });
+
+            if (recieverSocketIDs && recieverSocketIDs.length){
+              recieverSocketIDs.forEach(recieverSocketID => {
+                io.to(recieverSocketID).emit('message', chatInstance);
+              })
+            }              
+
             res.json(chatInstance);
           });
         }
@@ -146,9 +156,15 @@ router.post('/', function(req, res, next) {
             message: message,
             sender_id: userID
           });
-          chat.save(err => {
+          chat.save((err, chatInstance) => {
             if (err) return console.error(err);
-            io.emit('news', { hello: 'world' });
+
+            if (recieverSocketIDs && recieverSocketIDs.length){
+              recieverSocketIDs.forEach(recieverSocketID => {
+                io.to(recieverSocketID).emit('message', chatInstance);
+              })
+            }              
+
             res.status(200).json(chat);
           });
         }
