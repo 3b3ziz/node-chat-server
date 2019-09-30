@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 const ChatSchema = new mongoose.Schema({
   job_id: {
     type: String,
@@ -24,22 +25,7 @@ const ChatSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  messages: [
-    {
-      message: {
-        type: String,
-        required: true,
-      },
-      sender_id: {
-        type: String,
-        required: true,
-      },
-      created_at: {
-        type: Date,
-        default: Date.now
-      }
-    }
-  ]
+  messages : [{ type: Schema.Types.ObjectId, ref: 'Message' }]
 },
 {
   timestamps: {

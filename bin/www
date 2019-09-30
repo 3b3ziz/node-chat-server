@@ -36,6 +36,7 @@ connectDb().then(async () => {
   io.on('connection', function (socket) {
 
     let token = socket.handshake.query.token;
+    // TODO: verify instead of decode
     const decodedToken = jwt.decode(token);
     const { user_id: userID } = decodedToken;
 

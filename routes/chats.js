@@ -2,6 +2,7 @@ var express = require('express');
 var router = express.Router();
 var jwt = require('jsonwebtoken');
 var Chat = require('../db/models/chat');
+var Message = require('../db/models/message');
 
 router.get('/delete', function(req, res, next) {
   Chat.deleteMany({ }, function (err) {
@@ -11,10 +12,26 @@ router.get('/delete', function(req, res, next) {
   });
 });
 
+
+/* GET PAGINATED MESSAGES BY CHAT IDS */
+// TODO: Paginate
+router.get('/:id/messages', async (req, res, next) => {
+  const chatID = req.params.id;
+  
+  Chat.findOne({ _id: chatID }).
+    populate('messages').
+    exec((err, chat) => {
+  
+    if(err) res.json(err); 
+    res.json(chat);
+  });
+
+});
+
 /* GET all chats */
 router.get('/', function(req, res, next) {
-  // const users = req.app.get('users');
-  // console.log(users);
+  const users = req.app.get('users');
+  console.log(users);
   try {
     const authHeader = req.get('Authorization');
     const authToken = authHeader.split(' ')[1];
@@ -34,7 +51,9 @@ router.get('/', function(req, res, next) {
     const freelancerID = userType === 'Freelancer' ? userID : requestQuery.freelancer_id;
     const freelancerName = requestQuery.freelancer_name;
 
-    Chat.find({}, async (err, chats) => {
+    Chat.find({}).
+      sort({ updated_at: -1 }).
+      exec((err, chats) => {
       // if query params exist, create a new chat and add it to the chats array
       // to let frontend know that this is a new chat
       if (
@@ -44,7 +63,7 @@ router.get('/', function(req, res, next) {
         jobTitle &&
         clientName &&
         freelancerName
-      ) {  
+      ) {
         Chat.findOne({
           job_id: jobID,
           freelancer_id: freelancerID,
@@ -70,7 +89,7 @@ router.get('/', function(req, res, next) {
       } else {
         res.json(chats);
       }
-    }).sort({ updated_at: -1 });
+    });
   } catch(err) {
     res.status(401).json({ error: 'User is unauthorized to perform this action' });
   }
@@ -124,48 +143,52 @@ router.post('/', function(req, res, next) {
         if (err) return console.error(err);
         // if not found, create a new one
         if(!chat) {
-          const newChatInstance = new Chat({
-            job_id: jobID,
-            job_title: jobTitle,
-            freelancer_id: freelancerID,
-            freelancer_name: freelancerName,
-            client_id: clientID,
-            client_name: clientName,
-            messages: [
-              {
-                message: message,
-                sender_id: userID
-              }
-            ]
-          });
-          newChatInstance.save((err, chatInstance) => {
-            if (err) return console.error(err);
-
-            if (recieverSocketIDs && recieverSocketIDs.length){
-              recieverSocketIDs.forEach(recieverSocketID => {
-                io.to(recieverSocketID).emit('message', chatInstance);
-              })
-            }              
-
-            res.json(chatInstance);
-          });
-        }
-        // if not, append the message to the messages of the catt
-        else {
-          chat.messages.push({
+          const newMessageInstance = new Message({
             message: message,
             sender_id: userID
           });
-          chat.save((err, chatInstance) => {
+          newMessageInstance.save((err, messageInstance) => {
+            // TODO: if error exists, rollback message creation
             if (err) return console.error(err);
-
-            if (recieverSocketIDs && recieverSocketIDs.length){
-              recieverSocketIDs.forEach(recieverSocketID => {
-                io.to(recieverSocketID).emit('message', chatInstance);
-              })
-            }              
-
-            res.status(200).json(chat);
+            const newChatInstance = new Chat({
+              job_id: jobID,
+              job_title: jobTitle,
+              freelancer_id: freelancerID,
+              freelancer_name: freelancerName,
+              client_id: clientID,
+              client_name: clientName,
+              messages: [ messageInstance ]
+            });
+            newChatInstance.save((err, chatInstance) => {
+              if (err) return console.error(err);
+  
+              if (recieverSocketIDs && recieverSocketIDs.length){
+                recieverSocketIDs.forEach(recieverSocketID => {
+                  io.to(recieverSocketID).emit('message', chatInstance);
+                })
+              }
+              res.json(chatInstance);
+            });
+          })
+        }
+        // if not, append the message to the messages of the chat
+        else {
+          const newMessageInstance = new Message({
+            message: message,
+            sender_id: userID
+          });
+          newMessageInstance.save((err, messageInstance) => {
+            chat.messages.push(messageInstance);
+            chat.save((err, chatInstance) => {
+              if (err) return console.error(err);
+  
+              if (recieverSocketIDs && recieverSocketIDs.length){
+                recieverSocketIDs.forEach(recieverSocketID => {
+                  io.to(recieverSocketID).emit('message', chatInstance);
+                })
+              }
+              res.status(200).json(chatInstance);
+            });
           });
         }
       });
