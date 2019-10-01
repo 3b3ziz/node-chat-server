@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate');
+const Schema = mongoose.Schema;
 const MessageSchema = new mongoose.Schema({
   message: {
     type: String,
@@ -7,7 +9,11 @@ const MessageSchema = new mongoose.Schema({
   sender_id: {
     type: String,
     required: true,
-  }
+  },
+  chat_id: {
+    type: Schema.Types.ObjectId,
+    ref: 'Chat'
+  },
 },
 {
   timestamps: {
@@ -15,5 +21,7 @@ const MessageSchema = new mongoose.Schema({
     updatedAt: 'updated_at'
   }
 });
+
+MessageSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('Message', MessageSchema);

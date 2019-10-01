@@ -18,13 +18,11 @@ router.get('/delete', function(req, res, next) {
 router.get('/:id/messages', async (req, res, next) => {
   const chatID = req.params.id;
   
-  Chat.findOne({ _id: chatID }).
-    populate('messages').
-    exec((err, chat) => {
-  
-    if(err) res.json(err); 
-    res.json(chat);
-  });
+  Message.
+    paginate({ chat_id: chatID }, { limit: 2 }, (err, chat) => {
+      if(err) res.json(err); 
+      res.json(chat);
+    });
 
 });
 
@@ -143,31 +141,31 @@ router.post('/', function(req, res, next) {
         if (err) return console.error(err);
         // if not found, create a new one
         if(!chat) {
-          const newMessageInstance = new Message({
-            message: message,
-            sender_id: userID
+          const newChatInstance = new Chat({
+            job_id: jobID,
+            job_title: jobTitle,
+            freelancer_id: freelancerID,
+            freelancer_name: freelancerName,
+            client_id: clientID,
+            client_name: clientName
           });
-          newMessageInstance.save((err, messageInstance) => {
-            // TODO: if error exists, rollback message creation
+          newChatInstance.save((err, chatInstance) => {
             if (err) return console.error(err);
-            const newChatInstance = new Chat({
-              job_id: jobID,
-              job_title: jobTitle,
-              freelancer_id: freelancerID,
-              freelancer_name: freelancerName,
-              client_id: clientID,
-              client_name: clientName,
-              messages: [ messageInstance ]
+            const newMessageInstance = new Message({
+              message: message,
+              sender_id: userID,
+              chat: chatInstance._id
             });
-            newChatInstance.save((err, chatInstance) => {
+            newMessageInstance.save((err, messageInstance) => {
+              // TODO: if error exists, rollback message creation
               if (err) return console.error(err);
-  
+
               if (recieverSocketIDs && recieverSocketIDs.length){
                 recieverSocketIDs.forEach(recieverSocketID => {
                   io.to(recieverSocketID).emit('message', chatInstance);
                 })
               }
-              res.json(chatInstance);
+              res.json(messageInstance.populate('chat_id'));
             });
           })
         }
@@ -175,20 +173,16 @@ router.post('/', function(req, res, next) {
         else {
           const newMessageInstance = new Message({
             message: message,
-            sender_id: userID
+            sender_id: userID,
+            chat_id: chat.id
           });
           newMessageInstance.save((err, messageInstance) => {
-            chat.messages.push(messageInstance);
-            chat.save((err, chatInstance) => {
-              if (err) return console.error(err);
-  
-              if (recieverSocketIDs && recieverSocketIDs.length){
-                recieverSocketIDs.forEach(recieverSocketID => {
-                  io.to(recieverSocketID).emit('message', chatInstance);
-                })
-              }
-              res.status(200).json(chatInstance);
-            });
+            if (recieverSocketIDs && recieverSocketIDs.length){
+              recieverSocketIDs.forEach(recieverSocketID => {
+                io.to(recieverSocketID).emit('message', messageInstance);
+              })
+            }
+            res.status(200).json(messageInstance);
           });
         }
       });
