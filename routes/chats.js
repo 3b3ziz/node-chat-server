@@ -142,7 +142,7 @@ router.post('/', function(req, res, next) {
     const toID = userType === 'Client' ? freelancerID : clientID;
     const recieverSocketIDs = users[toID];
     const message = requestBody.message;
-    const chatID = req.chat_id;
+    const chatID = requestBody.chat_id;
 
     if (
       clientID &&
@@ -192,7 +192,9 @@ router.post('/', function(req, res, next) {
             });
           });
         } else if(!chat) {
-          console.log('error');
+          res.json({
+            error: 'error'
+          });
         }
         // if not, append the message to the messages of the chat
         else {
