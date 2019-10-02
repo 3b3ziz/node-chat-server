@@ -142,6 +142,7 @@ router.post('/', function(req, res, next) {
     const toID = userType === 'Client' ? freelancerID : clientID;
     const recieverSocketIDs = users[toID];
     const message = requestBody.message;
+    const chatID = req.chat_id;
 
     if (
       clientID &&
@@ -161,8 +162,9 @@ router.post('/', function(req, res, next) {
       }, (err, chat) => {
         if (err) return console.error(err);
         // if not found, create a new one
-        if(!chat) {
+        if(!chat && chatID) {
           const newChatInstance = new Chat({
+            _id: chatID,
             job_id: jobID,
             job_title: jobTitle,
             freelancer_id: freelancerID,
@@ -189,6 +191,8 @@ router.post('/', function(req, res, next) {
               res.status(200).json(messageInstance);
             });
           });
+        } else if(!chat) {
+          console.log('error');
         }
         // if not, append the message to the messages of the chat
         else {
