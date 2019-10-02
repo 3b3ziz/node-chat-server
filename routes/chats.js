@@ -83,8 +83,7 @@ router.get('/', function(req, res, next) {
               client_id: clientID,
               client_name: clientName,
             }).toObject();
-            const newChatInstanceTmp = { ...newChatInstance, messages: [] };
-            chats.unshift(newChatInstanceTmp);
+            chats.unshift(newChatInstance);
             res.json(chats);
           } else {
             const lastChatID = chats[0]._id;
@@ -176,7 +175,7 @@ router.post('/', function(req, res, next) {
             const newMessageInstance = new Message({
               message: message,
               sender_id: userID,
-              chat: chatInstance._id
+              chat_id: chatInstance._id
             });
             newMessageInstance.save((err, messageInstance) => {
               // TODO: if error exists, rollback message creation
