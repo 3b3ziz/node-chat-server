@@ -17,19 +17,17 @@ router.get('/delete', function(req, res, next) {
 // TODO: Paginate
 router.get('/:id/messages', async (req, res, next) => {
   const chatID = req.params.id;
-  
   Message.
     paginate({ chat_id: chatID }, { limit: 2 }, (err, chat) => {
       if(err) res.json(err); 
       res.json(chat);
     });
-
 });
 
 /* GET all chats */
 router.get('/', function(req, res, next) {
-  const users = req.app.get('users');
-  console.log(users);
+  // const users = req.app.get('users');
+  // console.log(users);
   try {
     const authHeader = req.get('Authorization');
     const authToken = authHeader.split(' ')[1];
@@ -49,8 +47,15 @@ router.get('/', function(req, res, next) {
     const freelancerID = userType === 'Freelancer' ? userID : requestQuery.freelancer_id;
     const freelancerName = requestQuery.freelancer_name;
 
-    Chat.find({}).
+    const queryObject = {
+      // https://stackoverflow.com/a/46857668/8373219
+      ...userType === 'Client' && { client_id: userID },
+      ...userType === 'Freelancer' && { freelancer_id: userID }
+    };
+
+    Chat.find(queryObject).
       sort({ updated_at: -1 }).
+      lean().
       exec((err, chats) => {
       // if query params exist, create a new chat and add it to the chats array
       // to let frontend know that this is a new chat
@@ -77,15 +82,32 @@ router.get('/', function(req, res, next) {
               freelancer_name: freelancerName,
               client_id: clientID,
               client_name: clientName,
-            });
-            chats.unshift(newChatInstance);
+            }).toObject();
+            const newChatInstanceTmp = { ...newChatInstance, messages: [] };
+            chats.unshift(newChatInstanceTmp);
             res.json(chats);
           } else {
-            res.json(chats);
+            const lastChatID = chats[0]._id;
+            Message.
+              paginate({ chat_id: lastChatID }, { limit: 10 }, (err, messages) => {
+                if(err) res.json(err); 
+                chats[0] = { ...chats[0], messages };
+                res.json(chats);
+              });
           }
         });
       } else {
-        res.json(chats);
+        if(!chats.length) {
+          res.json(chats);
+        } else {
+          const lastChatID = chats[0]._id;
+          Message.
+            paginate({ chat_id: lastChatID }, { limit: 10 }, (err, messages) => {
+              if(err) res.json(err);
+              chats[0] = { ...chats[0], messages };
+              res.json(chats);
+            });
+        }
       }
     });
   } catch(err) {
@@ -165,9 +187,9 @@ router.post('/', function(req, res, next) {
                   io.to(recieverSocketID).emit('message', chatInstance);
                 })
               }
-              res.json(messageInstance.populate('chat_id'));
+              res.status(200).json(messageInstance);
             });
-          })
+          });
         }
         // if not, append the message to the messages of the chat
         else {
