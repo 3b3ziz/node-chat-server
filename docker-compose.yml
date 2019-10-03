@@ -1,0 +1,20 @@
+version: '3.5'
+
+services:
+  chat-server:
+    container_name: chat-server
+    restart: always
+    environment:
+        - MONGO_URL=mongo
+    build: .
+    ports:
+      - 4000:4000
+    volumes:
+      - '.:/usr/src/chat-server'
+    links:
+      - mongo
+  mongo:
+    container_name: mongo
+    image: mongo
+    ports:
+      - 27017
