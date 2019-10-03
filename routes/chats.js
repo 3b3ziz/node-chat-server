@@ -18,7 +18,7 @@ router.get('/delete', function(req, res, next) {
 router.get('/:id/messages', async (req, res, next) => {
   const chatID = req.params.id;
   Message.
-    paginate({ chat_id: chatID }, { limit: 2 }, (err, chat) => {
+    paginate({ chat_id: chatID }, { limit: 10 }, (err, chat) => {
       if(err) res.json(err); 
       res.json(chat);
     });
@@ -83,7 +83,17 @@ router.get('/', function(req, res, next) {
               client_id: clientID,
               client_name: clientName,
             }).toObject();
-            chats.unshift(newChatInstance);
+            chats.unshift({
+              ...newChatInstance,
+              messages: {
+                docs: [],
+                limit: 10,
+                offset: 0,
+                page: 1,
+                pages: 1,
+                total: 1,
+              }
+            });
             res.json(chats);
           } else {
             const lastChatID = chats[0]._id;
