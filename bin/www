@@ -3,6 +3,7 @@
 /**
  * Module dependencies.
  */
+require('dotenv').config();
 var app = require('../app');
 var debug = require('debug')('chat-server:server');
 var http = require('http');
@@ -19,6 +20,11 @@ app.set('port', port);
  */
 
 var server = http.createServer(app);
+var io = require('socket.io')(server);
+var jwt = require('jsonwebtoken');
+var users = {};
+app.set("io", io);
+app.set("users", users);
 
 /**
  * Listen on provided port, on all network interfaces.
@@ -28,6 +34,29 @@ connectDb().then(async () => {
   server.listen(port);
   server.on('error', onError);
   server.on('listening', onListening);
+  io.on('connection', function (socket) {
+
+    let token = socket.handshake.query.token;
+    // TODO: verify instead of decode
+    const decodedToken = jwt.decode(token);
+    const { user_id: userID } = decodedToken;
+
+    if(users[userID]) users[userID].push(socket.id);
+    else users[userID] = [socket.id];
+
+    // idea: decode token .. make this user join a room with his id
+    // socket.join('some room');
+    // if message is sent to this user, emit it to the room or directly
+    // with the socket id
+    // keep socket ids in a map { userId: socketId }
+    
+    console.log(`Socket ${socket.id} connected.`);
+    socket.on('disconnect', reason => {
+      console.log(reason);
+      console.log(`a user with ID ${userID} with socket ${socket.id} has disconnected`);
+      users[userID] = users[userID].filter(x => x !== socket.id );
+    });
+  });
 });
 
 /**

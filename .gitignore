@@ -48,3 +48,5 @@ local-dev/bundle.js
 
 # MongoDB data folder
 data
+
+.env

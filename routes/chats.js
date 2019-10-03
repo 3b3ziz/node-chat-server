@@ -2,6 +2,7 @@ var express = require('express');
 var router = express.Router();
 var jwt = require('jsonwebtoken');
 var Chat = require('../db/models/chat');
+var Message = require('../db/models/message');
 
 router.get('/delete', function(req, res, next) {
   Chat.deleteMany({ }, function (err) {
@@ -11,9 +12,25 @@ router.get('/delete', function(req, res, next) {
   });
 });
 
+
+/* GET PAGINATED MESSAGES BY CHAT IDS */
+// TODO: Paginate
+router.get('/:id/messages', async (req, res, next) => {
+  const chatID = req.params.id;
+  Message.
+    paginate({ chat_id: chatID }, { limit: 10, sort: { updated_at: -1 } }, (err, messages) => {
+      if(err) res.json(err);
+      res.json({
+        ...messages,
+        docs: messages.docs.reverse()
+      });
+    });
+});
+
 /* GET all chats */
 router.get('/', function(req, res, next) {
-
+  // const users = req.app.get('users');
+  // console.log(users);
   try {
     const authHeader = req.get('Authorization');
     const authToken = authHeader.split(' ')[1];
@@ -33,7 +50,16 @@ router.get('/', function(req, res, next) {
     const freelancerID = userType === 'Freelancer' ? userID : requestQuery.freelancer_id;
     const freelancerName = requestQuery.freelancer_name;
 
-    Chat.find({}, async (err, chats) => {
+    const queryObject = {
+      // https://stackoverflow.com/a/46857668/8373219
+      ...userType === 'Client' && { client_id: userID },
+      ...userType === 'Freelancer' && { freelancer_id: userID }
+    };
+
+    Chat.find(queryObject).
+      sort({ updated_at: -1 }).
+      lean().
+      exec((err, chats) => {
       // if query params exist, create a new chat and add it to the chats array
       // to let frontend know that this is a new chat
       if (
@@ -43,7 +69,7 @@ router.get('/', function(req, res, next) {
         jobTitle &&
         clientName &&
         freelancerName
-      ) {  
+      ) {
         Chat.findOne({
           job_id: jobID,
           freelancer_id: freelancerID,
@@ -59,17 +85,49 @@ router.get('/', function(req, res, next) {
               freelancer_name: freelancerName,
               client_id: clientID,
               client_name: clientName,
+            }).toObject();
+            chats.unshift({
+              ...newChatInstance,
+              messages: {
+                docs: [],
+                limit: 10,
+                offset: 0,
+                page: 1,
+                pages: 1,
+                total: 1,
+              }
             });
-            chats.unshift(newChatInstance);
             res.json(chats);
           } else {
-            res.json(chats);
+            const lastChatID = chats[0]._id;
+            Message.
+              paginate({ chat_id: lastChatID }, { limit: 10, sort: { updated_at: -1 } }, (err, messages) => {
+                if(err) res.json(err);
+                chats[0] = { ...chats[0], messages: {
+                  ...messages,
+                  docs: messages.docs.reverse()
+                } };
+                res.json(chats);
+              });
           }
         });
       } else {
-        res.json(chats);
+        if(!chats.length) {
+          res.json(chats);
+        } else {
+          const lastChatID = chats[0]._id;
+          Message.
+            paginate({ chat_id: lastChatID }, { limit: 10, sort: { updated_at: -1 } }, (err, messages) => {
+              if(err) res.json(err)
+              chats[0] = { ...chats[0], messages: {
+                ...messages,
+                docs: messages.docs.reverse()
+              } };
+              res.json(chats);
+            });
+        }
       }
-    }).sort({ updated_at: -1 });
+    });
   } catch(err) {
     res.status(401).json({ error: 'User is unauthorized to perform this action' });
   }
@@ -79,6 +137,9 @@ router.get('/', function(req, res, next) {
 router.post('/', function(req, res, next) {
 
   try {
+    const io = req.app.get('io');
+    const users = req.app.get('users');
+
     const authHeader = req.get('Authorization');
     const authToken = authHeader.split(' ')[1];
     // TODO: verify jwtToken instead.
@@ -97,7 +158,10 @@ router.post('/', function(req, res, next) {
     const freelancerID = userType === 'Freelancer' ? userID : requestBody.freelancer_id;
     const freelancerName = requestBody.freelancer_name;
 
+    const toID = userType === 'Client' ? freelancerID : clientID;
+    const recieverSocketIDs = users[toID];
     const message = requestBody.message;
+    const chatID = requestBody.chat_id;
 
     if (
       clientID &&
@@ -117,35 +181,56 @@ router.post('/', function(req, res, next) {
       }, (err, chat) => {
         if (err) return console.error(err);
         // if not found, create a new one
-        if(!chat) {
+        if(!chat && chatID) {
           const newChatInstance = new Chat({
+            _id: chatID,
             job_id: jobID,
             job_title: jobTitle,
             freelancer_id: freelancerID,
             freelancer_name: freelancerName,
             client_id: clientID,
-            client_name: clientName,
-            messages: [
-              {
-                message: message,
-                sender_id: userID
-              }
-            ]
+            client_name: clientName
           });
           newChatInstance.save((err, chatInstance) => {
             if (err) return console.error(err);
-            res.json(chatInstance);
+            const newMessageInstance = new Message({
+              message: message,
+              sender_id: userID,
+              chat_id: chatInstance._id
+            });
+            newMessageInstance.save((err, messageInstance) => {
+              // TODO: if error exists, rollback message creation
+              if (err) return console.error(err);
+
+              if (recieverSocketIDs && recieverSocketIDs.length){
+                recieverSocketIDs.forEach(recieverSocketID => {
+                  io.to(recieverSocketID).emit('message', chatInstance);
+                })
+              }
+              res.status(200).json(messageInstance);
+            });
+          });
+        } else if(!chat) {
+          res.json({
+            error: 'error'
           });
         }
-        // if not, append the message to the messages of the catt
+        // if not, append the message to the messages of the chat
         else {
-          chat.messages.push({
+          const newMessageInstance = new Message({
             message: message,
-            sender_id: userID
+            sender_id: userID,
+            chat_id: chat.id
           });
-          chat.save(err => {
-            if (err) return console.error(err);
-            res.status(200).json(chat);
+          // TODO: try to move to middlewares .. MessageSchema.post('save')
+          // Chat.findByIdAndUpdate(chat.id, { updated_at: Date.now() }).exec();
+          newMessageInstance.save((err, messageInstance) => {
+            if (recieverSocketIDs && recieverSocketIDs.length){
+              recieverSocketIDs.forEach(recieverSocketID => {
+                io.to(recieverSocketID).emit('message', messageInstance);
+              })
+            }
+            res.status(200).json(messageInstance);
           });
         }
       });
