@@ -18,9 +18,12 @@ router.get('/delete', function(req, res, next) {
 router.get('/:id/messages', async (req, res, next) => {
   const chatID = req.params.id;
   Message.
-    paginate({ chat_id: chatID }, { limit: 10 }, (err, chat) => {
-      if(err) res.json(err); 
-      res.json(chat);
+    paginate({ chat_id: chatID }, { limit: 10, sort: { updated_at: -1 } }, (err, messages) => {
+      if(err) res.json(err);
+      res.json({
+        ...messages,
+        docs: messages.docs.reverse()
+      });
     });
 });
 
@@ -98,9 +101,12 @@ router.get('/', function(req, res, next) {
           } else {
             const lastChatID = chats[0]._id;
             Message.
-              paginate({ chat_id: lastChatID }, { limit: 10 }, (err, messages) => {
-                if(err) res.json(err); 
-                chats[0] = { ...chats[0], messages };
+              paginate({ chat_id: lastChatID }, { limit: 10, sort: { updated_at: -1 } }, (err, messages) => {
+                if(err) res.json(err);
+                chats[0] = { ...chats[0], messages: {
+                  ...messages,
+                  docs: messages.docs.reverse()
+                } };
                 res.json(chats);
               });
           }
@@ -111,9 +117,12 @@ router.get('/', function(req, res, next) {
         } else {
           const lastChatID = chats[0]._id;
           Message.
-            paginate({ chat_id: lastChatID }, { limit: 10 }, (err, messages) => {
-              if(err) res.json(err);
-              chats[0] = { ...chats[0], messages };
+            paginate({ chat_id: lastChatID }, { limit: 10, sort: { updated_at: -1 } }, (err, messages) => {
+              if(err) res.json(err)
+              chats[0] = { ...chats[0], messages: {
+                ...messages,
+                docs: messages.docs.reverse()
+              } };
               res.json(chats);
             });
         }
@@ -213,6 +222,8 @@ router.post('/', function(req, res, next) {
             sender_id: userID,
             chat_id: chat.id
           });
+          // TODO: try to move to middlewares .. MessageSchema.post('save')
+          // Chat.findByIdAndUpdate(chat.id, { updated_at: Date.now() }).exec();
           newMessageInstance.save((err, messageInstance) => {
             if (recieverSocketIDs && recieverSocketIDs.length){
               recieverSocketIDs.forEach(recieverSocketID => {

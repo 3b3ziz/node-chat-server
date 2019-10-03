@@ -22,6 +22,8 @@ const MessageSchema = new mongoose.Schema({
   }
 });
 
+MessageSchema.index({ chat_id: 1 });
+
 MessageSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('Message', MessageSchema);
