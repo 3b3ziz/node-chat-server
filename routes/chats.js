@@ -223,7 +223,7 @@ router.post('/', function(req, res, next) {
             chat_id: chat.id
           });
           // TODO: try to move to middlewares .. MessageSchema.post('save')
-          // Chat.findByIdAndUpdate(chat.id, { updated_at: Date.now() }).exec();
+          Chat.findByIdAndUpdate(chat.id, { updated_at: Date.now() }).exec();
           newMessageInstance.save((err, messageInstance) => {
             if (recieverSocketIDs && recieverSocketIDs.length){
               recieverSocketIDs.forEach(recieverSocketID => {
