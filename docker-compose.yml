@@ -11,6 +11,7 @@ services:
       - 4000:4000
     volumes:
       - '.:/usr/src/chat-server'
+      - '/usr/src/chat-server/node_modules'
     links:
       - mongo
   mongo:
