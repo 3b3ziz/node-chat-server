@@ -1,12 +1,14 @@
 version: '3.5'
 
 services:
-  chat-server:
+  begin-chat:
     container_name: chat-server
     restart: always
     environment:
-        - MONGO_URL=mongo
-    build: .
+      - MONGO_URL=mongo
+    build:
+      context: .
+      dockerfile: dev.dockerfile
     ports:
       - 4000:4000
     volumes:
@@ -14,8 +16,18 @@ services:
       - '/usr/src/chat-server/node_modules'
     links:
       - mongo
+    networks:
+      - my-proxy-net
+    tty: true
+    stdin_open: true
   mongo:
     container_name: mongo
     image: mongo
     ports:
       - 27017
+    networks:
+      - my-proxy-net
+networks:
+  my-proxy-net:
+    external:
+      name: custom_network

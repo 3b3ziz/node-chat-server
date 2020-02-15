@@ -33,6 +33,9 @@ node_modules
 .sass-cache
 *.css.map
 
+dist
+
+.vscode
 
 # OS X
 .DS_Store

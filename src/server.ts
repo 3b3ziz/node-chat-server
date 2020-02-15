@@ -3,28 +3,34 @@
 /**
  * Module dependencies.
  */
-require('dotenv').config();
-var app = require('../app');
-var debug = require('debug')('chat-server:server');
-var http = require('http');
-const connectDb = require('../db/db');
+import dotenv from 'dotenv';
+dotenv.config();
+
+import { app } from './app';
+import importedDebug from 'debug';
+const debug = importedDebug('chat-server:server');
+
+import http from 'http';
+import { connectDb } from './db';
+import socketIO from 'socket.io';
+import jwt from 'jsonwebtoken';
+
 /**
  * Get port from environment and store in Express.
  */
 
-var port = normalizePort(process.env.PORT || '4000');
+const port = normalizePort(process.env.PORT || '4000');
 app.set('port', port);
 
 /**
  * Create HTTP server.
  */
 
-var server = http.createServer(app);
-var io = require('socket.io')(server);
-var jwt = require('jsonwebtoken');
-var users = {};
-app.set("io", io);
-app.set("users", users);
+const server = http.createServer(app);
+const users: Record<string, string[]> = {};
+const io = socketIO(server);
+app.set('io', io);
+app.set('users', users);
 
 /**
  * Listen on provided port, on all network interfaces.
@@ -34,14 +40,13 @@ connectDb().then(async () => {
   server.listen(port);
   server.on('error', onError);
   server.on('listening', onListening);
-  io.on('connection', function (socket) {
-
-    let token = socket.handshake.query.token;
-    // TODO: verify instead of decode
-    const decodedToken = jwt.decode(token);
+  io.on('connection', function(socket) {
+    const authToken = socket.handshake.query.token;
+    const secretKey = process.env.SECRET_KEY;
+    const decodedToken = jwt.verify(authToken, secretKey) as DecodedToken;
     const { user_id: userID } = decodedToken;
 
-    if(users[userID]) users[userID].push(socket.id);
+    if (users[userID]) users[userID].push(socket.id);
     else users[userID] = [socket.id];
 
     // idea: decode token .. make this user join a room with his id
@@ -49,12 +54,12 @@ connectDb().then(async () => {
     // if message is sent to this user, emit it to the room or directly
     // with the socket id
     // keep socket ids in a map { userId: socketId }
-    
+
     console.log(`Socket ${socket.id} connected.`);
     socket.on('disconnect', reason => {
       console.log(reason);
       console.log(`a user with ID ${userID} with socket ${socket.id} has disconnected`);
-      users[userID] = users[userID].filter(x => x !== socket.id );
+      users[userID] = users[userID].filter(x => x !== socket.id);
     });
   });
 });
@@ -63,7 +68,7 @@ connectDb().then(async () => {
  * Normalize a port into a number, string, or false.
  */
 
-function normalizePort(val) {
+function normalizePort(val: string) {
   var port = parseInt(val, 10);
 
   if (isNaN(port)) {
@@ -83,14 +88,12 @@ function normalizePort(val) {
  * Event listener for HTTP server "error" event.
  */
 
-function onError(error) {
+function onError(error: NodeJS.ErrnoException) {
   if (error.syscall !== 'listen') {
     throw error;
   }
 
-  var bind = typeof port === 'string'
-    ? 'Pipe ' + port
-    : 'Port ' + port;
+  var bind = typeof port === 'string' ? 'Pipe ' + port : 'Port ' + port;
 
   // handle specific listen errors with friendly messages
   switch (error.code) {
@@ -113,8 +116,6 @@ function onError(error) {
 
 function onListening() {
   var addr = server.address();
-  var bind = typeof addr === 'string'
-    ? 'pipe ' + addr
-    : 'port ' + addr.port;
+  var bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr.port;
   debug('Listening on ' + bind);
 }
