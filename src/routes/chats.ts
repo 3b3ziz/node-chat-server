@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { Chat } from '../db/models/chat';
 import { Message } from '../db/models/message';
 import { authenticate } from '../middlewares/authenticate';
-import { authorizeChat } from '../services/authorize';
 import { validate, chatValidationRules } from '../middlewares/validate';
 
 const router = Router();
@@ -66,35 +65,8 @@ router.get('/:id/messages', async (req, res) => {
 /* GET all chats */
 router.get('/', async function(req, res) {
   const {
-    decodedToken: { user_id: userID, type: userType },
-    query: { job_id: jobID, freelancer_id }
+    decodedToken: { user_id: userID, type: userType }
   } = req;
-
-  const freelancerID = userType === 'Freelancer' ? userID : freelancer_id;
-
-  if (userType === 'Admin') {
-    const {
-      query: { page: pageQuery, job_title, client_name, freelancer_name }
-    } = req;
-
-    const queryObject = {
-      ...(job_title && { job_title: { $regex: '.*' + job_title + '.*' } }),
-      ...(client_name && {
-        client_name: { $regex: '.*' + client_name + '.*' }
-      }),
-      ...(freelancer_name && {
-        freelancer_name: { $regex: '.*' + freelancer_name + '.*' }
-      })
-    };
-
-    const page = Number(pageQuery) || 1;
-    const chats = await Chat.paginate(queryObject, {
-      limit,
-      sort: { updated_at: -1 },
-      page
-    });
-    return res.json(chats);
-  }
 
   const queryObject = {
     // https://stackoverflow.com/a/46857668/8373219
@@ -107,87 +79,12 @@ router.get('/', async function(req, res) {
     .sort({ updated_at: -1 })
     .lean();
 
-  // if query params does not exist
-  // then, the chat should exist in the database
-  if (!jobID || !freelancerID) {
-    if (!chats.length) {
-      return res.json(chats);
-    }
+  // populate last chat with messages
+  const lastChatID = chats[0]._id;
+  const chat = await getChatByChatId(lastChatID, chats[0]);
+  chats[0] = chat;
 
-    // populate last chat with messages
-    const lastChatID = chats[0]._id;
-    const chat = await getChatByChatId(lastChatID, chats[0]);
-    chats[0] = chat;
-
-    return res.json(chats);
-  }
-
-  // find specific chat with job_id and freelancer_id
-  const chat = await Chat.findOne({
-    job_id: jobID,
-    freelancer_id: freelancerID,
-    activated: true
-  });
-
-  // if a chat already exists, append to it
-  if (chat) {
-    const lastChatID = chats[0]._id;
-    const chat = await getChatByChatId(lastChatID, chats[0]);
-    chats[0] = chat;
-
-    return res.json(chats);
-  }
-
-  // otherwise, this is a new chat being created
-  // which requires to authorize a new chat between the two
-  try {
-    const {
-      data: {
-        deal: {
-          job: {
-            title: jobTitle,
-            client: {
-              first_name: clientFirstName,
-              last_name: clientLastName,
-              id: clientID
-            }
-          },
-          freelancer: {
-            first_name: freelancerFirstName,
-            last_name: freelancerLastName
-          }
-        }
-      }
-    } = await authorizeChat(req, jobID, freelancerID);
-    const freelancerName = `${freelancerFirstName} ${freelancerLastName}`;
-    const clientName = `${clientFirstName} ${clientLastName}`;
-
-    const newChatInstance = new Chat({
-      job_id: jobID,
-      job_title: jobTitle,
-      freelancer_id: freelancerID,
-      freelancer_name: freelancerName,
-      client_id: clientID,
-      client_name: clientName
-    }).toObject();
-    chats.unshift({
-      ...newChatInstance,
-      messages: {
-        docs: [],
-        limit,
-        offset: 0,
-        page: 1,
-        pages: 1,
-        total: 1
-      }
-    });
-    return res.json(chats);
-  } catch (error) {
-    if (error && error.response) {
-      return res.status(error.response.status).json(error.response.data);
-    }
-    return res.status(401).json({ error: "Can't authenticate this chat" });
-  }
+  return res.json(chats);
 });
 
 /* POST chat message. */
@@ -223,48 +120,6 @@ router.post('/', validate(chatValidationRules()), async function(req, res) {
       client_id: clientID,
       activated: true
     });
-
-    // TODO: why it is mandatory to send chat id?
-    // if not found, create a new one
-    if (!chat && chatID) {
-      const newChatInstance = new Chat({
-        _id: chatID,
-        job_id: jobID,
-        job_title: jobTitle,
-        freelancer_id: freelancerID,
-        freelancer_name: freelancerName,
-        client_id: clientID,
-        client_name: clientName
-      });
-
-      const chatInstance = await newChatInstance.save();
-
-      const newMessageInstance = new Message({
-        message: message,
-        sender_id: userID,
-        // TODO: is chatInstance._id equal to chatID ?
-        chat_id: chatInstance._id
-      });
-
-      const messageInstance = await newMessageInstance.save();
-
-      // handling sockets
-      if (recieverSocketIDs && recieverSocketIDs.length) {
-        recieverSocketIDs.forEach((recieverSocketID: number | string) => {
-          // TODO: revisit why sending chat instance instead of message instance.
-          io.to(recieverSocketID).emit('message', chatInstance);
-        });
-      }
-
-      return res.status(200).json(messageInstance);
-    }
-
-    // TODO: why it is mandatory to send chat id?
-    if (!chat && !chatID) {
-      return res.json({
-        error: 'error'
-      });
-    }
 
     // if not, append the message to the messages of the chat
     const newMessageInstance = new Message({
